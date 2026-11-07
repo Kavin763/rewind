@@ -1,0 +1,22 @@
+[
+  {
+    "label": "payments-api pool exhausted",
+    "service": "payments-api",
+    "alert": "[FIRING] sev1 service=payments-api alert=ChargeErrorRate\nerror rate 29% on POST /v2/charges (threshold 1%)\n2026-11-07T21:04:13Z ERROR o.h.e.j.s.SqlExceptionHelper - HikariPool-1 - Connection is not available, request timed out after 30000ms\n2026-11-07T21:04:13Z ERROR c.s.p.ChargeController - Charge failed: CannotCreateTransactionException\n2026-11-07T21:04:15Z FATAL: remaining connection slots are reserved for non-replication superuser connections (payments-db-primary)\ndeploy payments-api 4.22.0 rolled out at 20:51Z (HPA maxReplicas 10 -> 18)"
+  },
+  {
+    "label": "orders-worker Kafka lag",
+    "service": "orders-worker",
+    "alert": "[FIRING] sev2 service=orders-worker alert=KafkaConsumerLagHigh\nconsumer_group=orders-worker topic=orders.created lag=142,880 (threshold 10,000)\nERROR c.s.orders.OrderHandler - Failed to deserialize message at offset 11020391: Unrecognized field \"loyalty_tier\" (class OrderCreatedV3)\nWARN  o.a.k.c.c.i.ConsumerCoordinator - [orders-worker] Offset commit failed on partition orders.created-3"
+  },
+  {
+    "label": "auth-service 401 spike",
+    "service": "auth-service",
+    "alert": "[FIRING] sev1 service=auth-service alert=Auth401Rate\n401 rate 27% on /oauth/introspect (threshold 2%)\nWARN c.s.auth.JwtVerifier - Signature verification failed: no key found for kid=2026-11-07-a\nINFO c.s.auth.JwksCache - JWKS cache hit, age=1h12m\nsecurity-bot: scheduled signing key rotation completed at 20:30Z"
+  },
+  {
+    "label": "New: billing-cron stuck (no history)",
+    "service": "billing-cron",
+    "alert": "[FIRING] sev3 service=billing-cron alert=CronJobMissed\nCronJob billing-cron/invoice-generate last succeeded 26h ago (schedule 0 1 * * *)\nkubectl: Job invoice-generate-29371440 has 0 active pods, status: Pending\nEvents: 0/9 nodes are available: 9 Insufficient memory. preemption: 0/9 nodes are available"
+  }
+]

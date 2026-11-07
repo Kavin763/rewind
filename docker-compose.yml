@@ -1,0 +1,32 @@
+# Self-hosted Hindsight (API on :8888, web UI on :9999), using Groq for fact extraction.
+# Reads GROQ_API_KEY from the .env file next to this one.
+#
+#   docker compose up -d
+#   docker compose logs -f hindsight
+#
+# Note: the full image is large (~9 GB on x86_64) because it bundles the local
+# embedding and reranker models. The first pull takes a while.
+
+services:
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    container_name: hindsight
+    ports:
+      - "8888:8888"   # Hindsight API (Rewind talks to this)
+      - "9999:9999"   # Control plane UI: browse banks, memories and entities
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: groq
+      HINDSIGHT_API_LLM_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY in .env}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-openai/gpt-oss-20b}
+      # Free Groq accounts only allow the on_demand tier (Hindsight defaults to "auto").
+      HINDSIGHT_API_LLM_GROQ_SERVICE_TIER: on_demand
+      # A stable worker id so in-flight tasks survive container restarts.
+      HINDSIGHT_API_WORKER_ID: hindsight-rewind
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    shm_size: 1g
+    stop_grace_period: 75s
+    restart: unless-stopped
+
+volumes:
+  hindsight-data:

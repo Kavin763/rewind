@@ -1,0 +1,20 @@
+Most AI agents remember what worked.
+Mine also remembers what made things worse.
+
+I built Rewind, an on-call agent that uses Hindsight for long-term memory.
+
+Same alert. Memory off: roll back, make sure pods scaled up to 18 (the exact cause last time).
+
+Memory on: Seen before in INC-2041. Don't restart all pods at once; last time that caused a 20-minute cascade.
+
+What you can copy tomorrow:
+→ Store failed fixes as their own facts, worded as warnings
+→ Recall twice: what fixed it, what made it worse
+→ Drop any citation the model can't back with a memory
+→ One retain per incident keeps free-tier LLM costs sane
+
+After one resolved incident, it warned me off both bad fixes the next time.
+
+Code: github.com/YOUR-USERNAME/rewind
+
+#AIAgents #AgentMemory #Hindsight #LLM

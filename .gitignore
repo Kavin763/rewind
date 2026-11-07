@@ -1,0 +1,16 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/incidents.json
+data/*.tmp
+setup.log
+hindsight.log
+.hindsight-docker
+data/.seeded
+hindsight-first-try.log
+data/*.bak
+data/incidents-demo-run.json
+*.new

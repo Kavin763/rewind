@@ -1,0 +1,13 @@
+Generate a viral thumbnail for this YouTube video. Make the thumbnail attention grabbing and something that people scrolling would want to click on if they see it. The aspect ratio needs to be 16:9
+
+Use the attached photo of me as the main subject on the right third of the image, with a surprised, slightly alarmed expression, looking toward the left side.
+
+Left two-thirds: a dark on-call dashboard at 3 AM with a big red warning card that reads "DON'T RESTART ALL PODS" and a smaller line under it, "last time: 20-min outage". Behind it, a faint red alert graph spiking.
+
+Big bold headline text across the top in white with a red highlight on one word: "MY AGENT REMEMBERS FAILURES".
+
+Style: high contrast, dark navy background, red and white accents, clean tech look, no logos, no small text, readable on a phone.
+
+Here is the video script:
+
+[PASTE THE CONTENTS OF video_script.md HERE]

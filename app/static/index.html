@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rewind · On-call memory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1116; --panel: #151a21; --panel-2: #1b212a; --line: #262e39;
+    --text: #e6e9ee; --muted: #8b95a3; --faint: #5b6573;
+    --accent: #7cc4ff; --good: #4fd18b; --good-bg: rgba(79,209,139,.10);
+    --bad: #ff6b6b; --bad-bg: rgba(255,107,107,.10); --warn: #ffb547;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
+  button, input, textarea { font: inherit; color: inherit; }
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+
+  /* sidebar */
+  aside { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; }
+  .brand { padding: 20px 18px 14px; border-bottom: 1px solid var(--line); }
+  .brand h1 { margin: 0; font-size: 18px; letter-spacing: .02em; }
+  .brand h1 span { color: var(--accent); }
+  .brand p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+  .status { display: flex; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); margin-right: 5px; vertical-align: 1px; }
+  .dot.ok { background: var(--good); } .dot.down { background: var(--bad); }
+  .list-head { padding: 14px 18px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+  #incidents { overflow-y: auto; flex: 1; padding: 0 8px 16px; }
+  .inc { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 9px 10px; cursor: pointer; }
+  .inc:hover, .inc.active { background: var(--panel-2); }
+  .inc .row1 { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .inc .t { margin-top: 2px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .pill.open { color: var(--warn); border-color: rgba(255,181,71,.35); }
+  .pill.resolved { color: var(--good); border-color: rgba(79,209,139,.35); }
+
+  /* main */
+  main { padding: 24px 32px 64px; max-width: 1100px; width: 100%; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .tab { background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-bottom: 8px; }
+  textarea, input[type=text], input[type=number] {
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; outline: none;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  textarea.log { font-family: var(--mono); font-size: 12.5px; min-height: 150px; resize: vertical; }
+  .samples { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .chip:hover { color: var(--text); border-color: var(--faint); }
+  .controls { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .controls input[type=text] { width: 200px; }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; color: var(--muted); }
+  .toggle input { display: none; }
+  .switch { width: 36px; height: 20px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+  .toggle input:checked + .switch { background: rgba(124,196,255,.35); }
+  .toggle input:checked + .switch::after { transform: translateX(16px); background: var(--accent); }
+  .toggle b { color: var(--text); font-weight: 500; }
+  .btn { background: var(--accent); color: #06121e; border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 600; cursor: pointer; }
+  .btn:disabled { opacity: .5; cursor: progress; }
+  .btn.ghost { background: none; color: var(--text); border: 1px solid var(--line); }
+  .spacer { flex: 1; }
+
+  /* results */
+  .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+  .conf { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+  .conf.high { background: var(--good-bg); color: var(--good); }
+  .conf.medium { background: rgba(255,181,71,.12); color: var(--warn); }
+  .conf.low { background: var(--panel-2); color: var(--muted); }
+  .banner { border-radius: 8px; padding: 10px 14px; margin: 12px 0 0; font-size: 13px; }
+  .banner.amnesia { background: var(--panel-2); color: var(--muted); border: 1px dashed var(--line); }
+  .banner.degraded { background: rgba(255,181,71,.10); color: var(--warn); }
+  .summary { font-size: 15px; margin: 10px 0 4px; }
+  .grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
+  @media (max-width: 960px) { .app { grid-template-columns: 1fr; } aside { max-height: 260px; } .grid { grid-template-columns: 1fr; } main { padding: 16px; } }
+
+  .avoid { border: 1px solid rgba(255,107,107,.35); background: var(--bad-bg); }
+  .avoid .label { color: var(--bad); }
+  ol.steps, ul.avoids { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.avoids li { margin-bottom: 10px; }
+  .why { color: var(--muted); font-size: 13px; }
+  .src { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 0 5px; margin-left: 4px; border-radius: 3px; background: var(--panel-2); color: var(--accent); cursor: pointer; border: 1px solid var(--line); }
+  .mem { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 8px; font-size: 13px; transition: border-color .15s, background .15s; }
+  .mem.hl { border-color: var(--accent); background: rgba(124,196,255,.06); }
+  .mem .meta { display: flex; gap: 6px; align-items: center; margin-bottom: 3px; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .kind { padding: 0 6px; border-radius: 3px; }
+  .kind.fix { background: var(--good-bg); color: var(--good); }
+  .kind.failure { background: var(--bad-bg); color: var(--bad); }
+  .kind.context { background: var(--panel-2); color: var(--muted); }
+  .empty { color: var(--faint); font-size: 13px; }
+  pre.alert { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; white-space: pre-wrap; max-height: 180px; overflow: auto; margin: 0; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .form-row textarea { min-height: 84px; }
+  .hint { font-size: 12px; color: var(--faint); margin-top: 4px; }
+  .answer { white-space: pre-wrap; font-size: 14.5px; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--good); padding: 12px 16px; border-radius: 8px; opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none; max-width: 360px; }
+  .toast.show { opacity: 1; transform: none; }
+  .toast.err { border-left-color: var(--bad); }
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .7s linear infinite; vertical-align: -1px; margin-right: 6px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <h1>re<span>wind</span></h1>
+      <p>On-call agent that remembers what fixed it, and what made it worse.</p>
+    </div>
+    <div class="status">
+      <span><i class="dot" id="dot-mem"></i>Hindsight</span>
+      <span><i class="dot" id="dot-llm"></i>LLM</span>
+    </div>
+    <div class="list-head">Incidents</div>
+    <div id="incidents"><div class="empty" style="padding:8px 10px">No incidents yet.</div></div>
+  </aside>
+
+  <main>
+    <div class="tabs">
+      <button class="tab active" data-tab="triage">Triage an alert</button>
+      <button class="tab" data-tab="ask">Ask the memory</button>
+    </div>
+
+    <!-- TRIAGE -->
+    <section id="tab-triage">
+      <div class="card">
+        <div class="label">Paste the alert or error log</div>
+        <textarea id="alert" class="log" placeholder="[FIRING] sev1 service=payments-api&#10;HikariPool-1 - Connection is not available, request timed out after 30000ms"></textarea>
+        <div class="samples" id="samples"></div>
+        <div class="controls">
+          <input type="text" id="service" placeholder="service (auto-detected)">
+          <label class="toggle" title="Turn off to see how the agent answers with no history">
+            <input type="checkbox" id="use-memory" checked><span class="switch"></span>
+            Memory <b id="mem-state">on</b>
+          </label>
+          <span class="spacer"></span>
+          <button class="btn" id="analyze">Analyze</button>
+        </div>
+      </div>
+      <div id="result"></div>
+    </section>
+
+    <!-- ASK -->
+    <section id="tab-ask" class="hidden">
+      <div class="card">
+        <div class="label">Ask anything about past incidents</div>
+        <textarea id="question" style="min-height:80px" placeholder="What keeps breaking in payments-api, and what should we fix permanently?"></textarea>
+        <div class="samples" id="ask-samples"></div>
+        <div class="controls"><span class="hint">Uses Hindsight reflect: it searches the whole memory bank and reasons over it.</span><span class="spacer"></span><button class="btn" id="ask-btn">Ask</button></div>
+      </div>
+      <div id="answer"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let current = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ? (typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)) : res.statusText);
+  return body;
+}
+
+function toast(msg, err = false) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(t._h); t._h = setTimeout(() => (t.className = "toast"), 3800);
+}
+
+function busy(btn, on, label) {
+  btn.disabled = on;
+  btn.innerHTML = on ? `<span class="spin"></span>${label}` : btn.dataset.label;
+}
+document.querySelectorAll(".btn").forEach((b) => (b.dataset.label = b.textContent));
+
+// ---------- tabs ----------
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
+  $("#tab-triage").classList.toggle("hidden", t.dataset.tab !== "triage");
+  $("#tab-ask").classList.toggle("hidden", t.dataset.tab !== "ask");
+}));
+
+$("#use-memory").addEventListener("change", (e) => ($("#mem-state").textContent = e.target.checked ? "on" : "off"));
+
+// ---------- health, samples, list ----------
+async function loadHealth() {
+  try {
+    const h = await api("/api/health");
+    $("#dot-mem").className = "dot " + (h.hindsight ? "ok" : "down");
+    $("#dot-llm").className = "dot " + (h.llm ? "ok" : "down");
+  } catch { $("#dot-mem").className = "dot down"; }
+}
+
+async function loadSamples() {
+  const samples = await api("/api/samples").catch(() => []);
+  $("#samples").innerHTML = samples.map((s, i) => `<button class="chip" data-i="${i}">${esc(s.label)}</button>`).join("");
+  $("#samples").onclick = (e) => {
+    const s = samples[e.target.dataset.i]; if (!s) return;
+    $("#alert").value = s.alert; $("#service").value = s.service || "";
+  };
+  const qs = ["What keeps breaking in payments-api?", "Which fixes have made incidents worse?", "What should we fix permanently to stop repeat incidents?"];
+  $("#ask-samples").innerHTML = qs.map((q) => `<button class="chip">${esc(q)}</button>`).join("");
+  $("#ask-samples").onclick = (e) => { if (e.target.classList.contains("chip")) $("#question").value = e.target.textContent; };
+}
+
+async function loadList() {
+  const items = await api("/api/incidents").catch(() => []);
+  if (!items.length) return;
+  $("#incidents").innerHTML = items.map((i) => `
+    <button class="inc ${current && current.id === i.id ? "active" : ""}" data-id="${esc(i.id)}">
+      <div class="row1"><span>${esc(i.id)} · ${esc(i.service)}</span><span class="pill ${esc(i.status)}">${esc(i.status)}</span></div>
+      <div class="t">${esc(i.title)}</div>
+    </button>`).join("");
+}
+$("#incidents").addEventListener("click", async (e) => {
+  const b = e.target.closest(".inc"); if (!b) return;
+  try { render(await api(`/api/incidents/${b.dataset.id}`)); loadList(); } catch (err) { toast(err.message, true); }
+});
+
+// ---------- triage ----------
+$("#analyze").addEventListener("click", async () => {
+  const alert = $("#alert").value.trim();
+  if (!alert) return toast("Paste an alert first.", true);
+  const btn = $("#analyze");
+  busy(btn, true, $("#use-memory").checked ? "Recalling…" : "Thinking…");
+  try {
+    const inc = await api("/api/triage", { method: "POST", body: JSON.stringify({ alert, service: $("#service").value || null, use_memory: $("#use-memory").checked }) });
+    render(inc); loadList();
+  } catch (err) { toast(err.message, true); }
+  finally { busy(btn, false); }
+});
+
+const srcChips = (refs) => (refs || []).map((r) => `<span class="src" data-ref="${esc(r)}">${esc(r)}</span>`).join("");
+
+function render(inc) {
+  current = inc;
+  const t = inc.triage || {};
+  const mems = t.memories || [];
+  const banner = !t.memory_enabled
+    ? `<div class="banner amnesia">Memory was off for this triage. This is what the agent says with no history.</div>`
+    : t.degraded ? `<div class="banner degraded">The LLM was unavailable, so this shows what memory recalled directly.</div>` : "";
+
+  const avoid = (t.avoid || []).length ? `
+    <div class="card avoid">
+      <div class="label">Don't do this: it failed before</div>
+      <ul class="avoids">${t.avoid.map((a) => `<li><b>${esc(a.action)}</b>${srcChips(a.sources)}${a.why ? `<div class="why">${esc(a.why)}</div>` : ""}</li>`).join("")}</ul>
+    </div>` : "";
+
+  const steps = (t.steps || []).length
+    ? `<ol class="steps">${t.steps.map((s) => `<li>${esc(s.action)}${srcChips(s.sources)}${s.why ? `<div class="why">${esc(s.why)}</div>` : ""}</li>`).join("")}</ol>`
+    : `<div class="empty">No steps returned.</div>`;
+
+  const memHtml = mems.length
+    ? mems.map((m) => `<div class="mem" id="mem-${esc(m.ref)}"><div class="meta"><span>${esc(m.ref)}</span><span class="kind ${esc(m.kind)}">${esc(m.kind)}</span>${m.occurred ? `<span>${esc(m.occurred.slice(0, 10))}</span>` : ""}</div>${esc(m.text)}</div>`).join("")
+    : `<div class="empty">${t.memory_enabled ? "Nothing in memory matched this alert. Resolve it below and it will be remembered next time." : "Memory off."}</div>`;
+
+  const similar = (t.similar_incidents || []).length ? `<span class="muted">· seen before in ${t.similar_incidents.map(esc).join(", ")}</span>` : "";
+  const questions = (t.open_questions || []).length ? `<div class="label" style="margin-top:14px">Still worth checking</div><ul style="margin:0;padding-left:20px">${t.open_questions.map((q) => `<li class="why">${esc(q)}</li>`).join("")}</ul>` : "";
+
+  $("#result").innerHTML = `
+    <div class="card">
+      <div class="head">
+        <h2>${esc(inc.title)}</h2>
+      </div>
+      <div class="muted mono" style="font-size:12px">${esc(inc.id)} · ${esc(inc.service)} · ${esc(inc.severity)} ${t.confidence ? `· <span class="conf ${esc(t.confidence)}">confidence ${esc(t.confidence)}</span>` : ""} ${similar}</div>
+      ${banner}
+      <p class="summary">${esc(t.summary)}</p>
+      ${t.likely_cause ? `<div class="why">Likely cause: ${esc(t.likely_cause)}</div>` : ""}
+    </div>
+    ${avoid}
+    <div class="grid">
+      <div class="card"><div class="label">Suggested steps</div>${steps}${questions}</div>
+      <div class="card"><div class="label">Recalled from memory (${mems.length})</div>${memHtml}</div>
+    </div>
+    ${resolveSection(inc)}
+    <div class="card"><div class="label">Original alert</div><pre class="alert">${esc(inc.alert)}</pre></div>`;
+  bindResolve(inc);
+}
+
+// hover / click a citation to highlight the memory it came from
+$("#result").addEventListener("mouseover", (e) => hl(e.target.dataset.ref, true));
+$("#result").addEventListener("mouseout", (e) => hl(e.target.dataset.ref, false));
+$("#result").addEventListener("click", (e) => { const el = e.target.dataset.ref && document.getElementById("mem-" + e.target.dataset.ref); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); });
+function hl(ref, on) { if (!ref) return; const el = document.getElementById("mem-" + ref); if (el) el.classList.toggle("hl", on); }
+
+// ---------- resolve ----------
+function resolveSection(inc) {
+  if (inc.status === "resolved" && inc.resolution) {
+    const r = inc.resolution;
+    return `<div class="card"><div class="label">Resolved · saved to memory</div>
+      <div><b>Root cause:</b> ${esc(r.root_cause)}</div>
+      ${r.worked.length ? `<div style="margin-top:6px"><span class="kind fix mono">worked</span> ${r.worked.map(esc).join("; ")}</div>` : ""}
+      ${r.failed.length ? `<div style="margin-top:6px"><span class="kind failure mono">failed</span> ${r.failed.map(esc).join("; ")}</div>` : ""}
+      ${r.minutes_to_resolve ? `<div class="why" style="margin-top:6px">Resolved in ${esc(r.minutes_to_resolve)} minutes</div>` : ""}</div>`;
+  }
+  return `<div class="card" id="resolve-card"><div class="label">Close the loop: teach the agent what happened</div>
+    <input type="text" id="r-cause" placeholder="Root cause, e.g. connection pool exhausted after deploy raised worker count">
+    <div class="form-row">
+      <div><textarea id="r-worked" placeholder="What worked (one per line)"></textarea></div>
+      <div><textarea id="r-failed" placeholder="What failed or made it worse (one per line)&#10;e.g. Restarted pods: caused a cascade"></textarea></div>
+    </div>
+    <div class="controls">
+      <input type="number" id="r-min" min="0" placeholder="Minutes to resolve" style="width:170px">
+      <span class="hint">Failures are stored as their own warnings so the agent can stop you repeating them.</span>
+      <span class="spacer"></span>
+      <button class="btn" id="r-save" data-label="Save to memory">Save to memory</button>
+    </div></div>`;
+}
+
+function bindResolve(inc) {
+  const btn = $("#r-save"); if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const lines = (id) => $(id).value.split("\n").map((s) => s.trim()).filter(Boolean);
+    const body = { root_cause: $("#r-cause").value.trim(), worked: lines("#r-worked"), failed: lines("#r-failed"), minutes_to_resolve: $("#r-min").value ? Number($("#r-min").value) : null };
+    if (!body.root_cause) return toast("Add the root cause first.", true);
+    busy(btn, true, "Saving…");
+    try {
+      const out = await api(`/api/incidents/${inc.id}/resolve`, { method: "POST", body: JSON.stringify(body) });
+      toast(`Sent the post-mortem to Hindsight (${out.memories_written} facts). Searchable in about a minute.`);
+      render(out.incident); loadList();
+    } catch (err) { toast(err.message, true); busy(btn, false); }
+  });
+}
+
+// ---------- ask (reflect) ----------
+$("#ask-btn").addEventListener("click", async () => {
+  const q = $("#question").value.trim(); if (!q) return;
+  const btn = $("#ask-btn"); busy(btn, true, "Reflecting…");
+  try {
+    const { answer } = await api("/api/ask", { method: "POST", body: JSON.stringify({ question: q }) });
+    $("#answer").innerHTML = `<div class="card"><div class="label">Answer from memory</div><div class="answer">${esc(answer).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")}</div></div>`;
+  } catch (err) { toast(err.message, true); }
+  finally { busy(btn, false); }
+});
+
+loadHealth(); loadSamples(); loadList();
+</script>
+</body>
+</html>
