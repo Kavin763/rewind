@@ -63,7 +63,7 @@ Click **Save to memory**.
 
 Rewind is an on-call incident agent with long-term memory. It recalls what fixed similar incidents and, more importantly, which fixes made things worse, then warns you before you repeat them. Memory: Hindsight (self-hosted). LLM: Groq.
 
-Code: [YOUR GITHUB REPO URL]
-Article: [YOUR ARTICLE URL]
+Code: https://github.com/Kavin763/rewind
+Article: https://medium.com/@kaviselvank4/my-on-call-agent-uses-hindsight-to-remember-fixes-that-failed-0073a00cfdc6
 Hindsight: https://github.com/vectorize-io/hindsight
 Docs: https://hindsight.vectorize.io/

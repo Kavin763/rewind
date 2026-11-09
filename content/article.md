@@ -2,7 +2,7 @@
 
 The most useful sentence my incident agent has produced so far is a warning: *don't restart all the payments-api pods at once, because last time that turned a partial outage into a 20-minute cascade.*
 
-No model knows that out of the box. It isn't in any training set or runbook. Someone on my team learned it the hard way, wrote it down in a post-mortem, and then nobody read that post-mortem again. I built **Rewind** so the next person paged at 3am doesn't have to relearn it.
+No model knows that out of the box, and it's rarely in a runbook. Knowledge like that is learned the hard way during an outage, written into a post-mortem, and then nobody reads the post-mortem again. I built **Rewind** so the next person paged at 3am doesn't have to relearn it.
 
 Rewind is an on-call agent with long-term memory. You paste an alert, and it recalls how similar incidents were resolved. It also recalls which "fixes" backfired, and it warns you away from them before you try them. When the incident is over, you tell it what actually happened, and it remembers that too.
 
@@ -22,7 +22,7 @@ The flow has three steps:
 2. **Reason with citations.** Recalled memories are numbered M1..Mn and labelled *fix*, *failure* or *context*. The LLM must cite them, and any citation that doesn't match a recalled memory is dropped.
 3. **Learn.** When the engineer closes the incident, Rewind retains a post-mortem: root cause, what worked, and what didn't.
 
-I chose Hindsight over a plain vector store because recall is not just embeddings. It runs semantic, keyword, graph and temporal search in parallel and reranks the results, and its own docs explain [how agent memory differs from RAG](https://hindsight.vectorize.io/). For incidents that matters: "HikariPool-1 connection timeout" needs keyword matching, "the payments outage three weeks ago" needs time, and "payments-db-primary" links facts across incidents.
+I chose Hindsight over a plain vector store because recall is not just embeddings. It runs semantic, keyword, graph and temporal search in parallel and reranks the results, and its docs explain [how agent memory differs from RAG](https://hindsight.vectorize.io/developer/rag-vs-hindsight). For incidents that matters: "HikariPool-1 connection timeout" needs keyword matching, "the payments outage three weeks ago" needs time, and "payments-db-primary" links facts across incidents.
 
 ## The core idea: failures are first-class memories
 
@@ -114,7 +114,7 @@ If the model mentions INC-9999 and no recalled memory contains it, the console n
 
 ## Lessons learned
 
-**1. Store what went wrong as deliberately as what went right.** The "Don't do this" box is the feature people react to. It only works because failures are written as standalone warnings, not as a footnote in a post-mortem.
+**1. Store what went wrong as deliberately as what went right.** The "Don't do this" box is the most useful part of every answer. It only works because failures are written as standalone warnings, not as a footnote in a post-mortem.
 
 **2. Write memories for retrieval, not for humans.** Self-contained sentences that name the service, the incident and the outcome come back reliably. Long narrative paragraphs don't.
 
@@ -122,7 +122,7 @@ If the model mentions INC-9999 and no recalled memory contains it, the console n
 
 **4. Validate citations in code, not in the prompt.** Telling the model "only cite memories you were given" helps. Dropping the ones it made up is what you can rely on.
 
-**5. Hindsight labels facts in its own words, so match ideas, not strings.** Hindsight rewrites "made things worse" as "caused a 20-minute cascade". My fix/failure labels started as exact-phrase matches and missed paraphrases until I broadened them. The LLM still sees the full fact text, so a wrong label degrades gracefully, but the label is what users scan.
+**5. Hindsight stores facts in its own words, so match ideas, not strings.** Hindsight rewrites what you give it into fact sentences: "the outage got worse" came back as "causing a 20-minute cascade". My fix/failure labels started as exact-phrase matches and missed paraphrases until I broadened them. The LLM still sees the full fact text, so a wrong label degrades gracefully, but the label is what users scan.
 
 ## Try it
 

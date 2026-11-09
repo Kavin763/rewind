@@ -15,6 +15,6 @@ What you can copy tomorrow:
 
 After one resolved incident, it warned me off both bad fixes the next time.
 
-Code: github.com/YOUR-USERNAME/rewind
+Code: github.com/Kavin763/rewind
 
 #AIAgents #AgentMemory #Hindsight #LLM
